@@ -181,7 +181,7 @@ function sspe_add_menu_page_callback() {
 			
 			<div style="float: left; width: 65%;">
 			
-				<?php $posts = get_posts( array( 'post_per_page' => -1 ) ); ?>
+				<?php $posts = get_posts( array( 'posts_per_page' => -1 ) ); ?>
 			
 				<table class="form-table">
 					<tbody>
@@ -192,7 +192,7 @@ function sspe_add_menu_page_callback() {
 				
 									<option></option>
 									<?php foreach( $posts as $post ): ?>
-									<option value="<?php echo $post->ID; ?>"><?php echo $post->post_title; ?></option>
+									<option value="<?php echo $post->ID; ?>"><?php echo $post->ID; ?> - <?php echo $post->post_title; ?></option>
 									<?php endforeach; ?>
 								</select>
 							</td>
@@ -204,7 +204,7 @@ function sspe_add_menu_page_callback() {
 				
 									<option></option>
 									<?php foreach( $posts as $post ): ?>
-									<option value="<?php echo $post->ID; ?>"><?php echo $post->post_title; ?></option>
+									<option value="<?php echo $post->ID; ?>"><?php echo $post->ID; ?> - <?php echo $post->post_title; ?></option>
 									<?php endforeach; ?>
 								</select>
 							</td>
@@ -216,7 +216,7 @@ function sspe_add_menu_page_callback() {
 				
 									<option></option>
 									<?php foreach( $posts as $post ): ?>
-									<option value="<?php echo $post->ID; ?>"><?php echo $post->post_title; ?></option>
+									<option value="<?php echo $post->ID; ?>"><?php echo $post->ID; ?> - <?php echo $post->post_title; ?></option>
 									<?php endforeach; ?>
 								</select>
 							</td>
