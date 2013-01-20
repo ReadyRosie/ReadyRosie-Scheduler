@@ -17,7 +17,9 @@ require_once( WP_PLUGIN_DIR .'/schedule-send-posts-via-email/email.php' );
 
 add_action( 'admin_menu',				'sspe_add_menu' );
 add_action( 'admin_enqueue_scripts',	'sspe_enqueue_scripts' );
-add_action( 'sspe_email_videos',		'sspe_schedule_email' );
+add_action( 'sspe_email_videos',		'sspe_schedule_email', 10, 3 );
+
+date_default_timezone_set( get_option( 'timezone_string' ) );
 
 // Add page as submenu to Tools
 function sspe_add_menu() {
@@ -35,38 +37,36 @@ function sspe_enqueue_scripts($hook) {
 }
 
 // Sets up the action to run when the scheduled event fires (i.e. email users)
-function sspe_schedule_email( $args ) {
+function sspe_schedule_email( $post1_id, $post2_id, $post3_id ) {
 	
-	foreach( $args as $arg ) {
-		error_log( $arg );
-	}
+	$sspe_options = get_option( 'sspe_settings' );
 
 	// Mailchimp API Key
-	$api = new MCAPI( 'b3ffb03fa6953923dba0abca020cb3dd-us1' );
+	$api = new MCAPI( $sspe_options['sspe_mailchimp_api_key'] );
 			
 	// Get the main post title	
-	$title				= get_the_title( $args['post1'] );
+	$title				= get_the_title( $post1_id );
 
 	// Regular campaign
 	$type				= 'regular';
 	
 	// Campaign title
-	$opts['title']		= 'Production Campaign';
+	$opts['title']		= $sspe_options['sspe_mailchimp_campaign_title'];
 		
 	// List ID
-	$opts['list_id']	= 'f9745d5dbe';
+	$opts['list_id']	= $sspe_options['sspe_mailchimp_list_id'];
 	
 	// Email subject
-	$opts['subject']	= 'Today\'s ReadyRosie Video - ' . $title;
+	$opts['subject']	= $sspe_options['sspe_mailchimp_email_subject'] .' - ' . $title;
 	
 	// From email address
-	$opts['from_email']	= 'patrick@developdaly.com'; 
+	$opts['from_email']	= $sspe_options['sspe_mailchimp_from_email']; 
 	
 	// From name
-	$opts['from_name']	= 'ReadyRosie';
+	$opts['from_name']	= $sspe_options['sspe_mailchimp_from_name'];
 
 	// To name
-	$opts['to_name']	= '*|FNAME|*';
+	$opts['to_name']	= $sspe_options['sspe_mailchimp_to_name'];
 		
 	// Tracking options
 	$opts['tracking']	= array(
@@ -77,23 +77,23 @@ function sspe_schedule_email( $args ) {
 	
 	// Google Analytics ID
 	$opts['analytics']	= array(
-							'google' => 'UA-33622544-1'
+							'google' => $sspe_options['sspe_mailchimp_google_analytics']
 						);
 	
 	// Email content
 	$content = array(
-		'html'			=> sspe_email_template_html( $args ),
-		'text'			=> sspe_email_template_text( $args )
+		'html'			=> sspe_email_template_html( $post1_id, $post2_id, $post3_id ),
+		'text'			=> sspe_email_template_text( $post1_id, $post2_id, $post3_id )
 	);
 	
 	// Create the camppaign based on the options above
 	$retval = $api->campaignCreate( $type, $opts, $content );
-	
+		
 	// Email administrator if campaign errors out or send campaign
 	if ($api->errorCode){
 		$message = "\n\tCode=".$api->errorCode;
 		$message .= "\n\tMsg=".$api->errorMessage."\n";
-		wp_mail( get_option('admin_email'), 'Unable to Send Campaign!', $message );
+		error_log( '[Schedule and Send Posts via Email Plugin] '. $message );
 	} else {
 		$api->campaignSendNow( $retval );
 	}
@@ -114,27 +114,45 @@ function sspe_add_menu_page_callback() {
 	$sspe_post3		= 'sspe_post3';
 	$sspe_hidden	= 'sspe_hidden';
 	$sspe_timestamp	= 'sspe_timestamp';
-	$sspe_mailchimp_api_key_field	= 'sspe_mailchimp_api_key';
+	$sspe_mailchimp_api_key_field			= 'sspe_mailchimp_api_key';
+	$sspe_mailchimp_campaign_title_field	= 'sspe_mailchimp_campaign_title';
+	$sspe_mailchimp_list_id_field			= 'sspe_mailchimp_list_id';
+	$sspe_mailchimp_email_subject_field		= 'sspe_mailchimp_email_subject';
+	$sspe_mailchimp_from_email_field		= 'sspe_mailchimp_from_email';
+	$sspe_mailchimp_from_name_field			= 'sspe_mailchimp_from_name';
+	$sspe_mailchimp_to_name_field			= 'sspe_mailchimp_to_name';
+	$sspe_mailchimp_google_analytics_field	= 'sspe_mailchimp_google_analytics';
 
-	$sspe_mailchimp_api_key_val = get_option( $sspe_mailchimp_api_key_field );
+	$sspe_options = get_option( 'sspe_settings' );
 
     // See if the user has posted some information
     // If they did, this hidden field will be set to 'Y'
     if( isset($_POST[ $sspe_hidden ]) && $_POST[ $sspe_hidden ] == 'Y' ) {
 
-		// Define arguments
-	    $sspe_args = array(
-			$sspe_post1					=> $_POST[ $sspe_post1 ],
-			$sspe_post2					=> $_POST[ $sspe_post2 ],
-			$sspe_post3					=> $_POST[ $sspe_post3 ],
-			$sspe_timestamp				=> strtotime( $_POST[ $sspe_timestamp ] )
+		$sspe_options = array(
+			$sspe_mailchimp_api_key_field			=> stripslashes( $_POST[ $sspe_mailchimp_api_key_field ] ),
+			$sspe_mailchimp_campaign_title_field	=> stripslashes( $_POST[ $sspe_mailchimp_campaign_title_field ] ),
+			$sspe_mailchimp_list_id_field			=> stripslashes( $_POST[ $sspe_mailchimp_list_id_field ] ),
+			$sspe_mailchimp_email_subject_field		=> stripslashes( $_POST[ $sspe_mailchimp_email_subject_field ] ),
+			$sspe_mailchimp_from_email_field		=> stripslashes( $_POST[ $sspe_mailchimp_from_email_field ] ),
+			$sspe_mailchimp_from_name_field			=> stripslashes( $_POST[ $sspe_mailchimp_from_name_field ] ),
+			$sspe_mailchimp_to_name_field			=> stripslashes( $_POST[ $sspe_mailchimp_to_name_field ] ),
+			$sspe_mailchimp_google_analytics_field	=> stripslashes( $_POST[ $sspe_mailchimp_google_analytics_field ] )
 		);
-		
+
 		// Save settings
-        update_option( $sspe_mailchimp_api_key_field, $_POST[ 'sspe_mailchimp_api_key'] );				
-		
+        update_option( 'sspe_settings', $sspe_options );		
+
+		// Define arguments
+		$sspe_args = array(
+			$_POST[ $sspe_post1 ],
+			$_POST[ $sspe_post2 ],
+			$_POST[ $sspe_post3 ]
+		);
+				
 		// Schedule event
-		wp_schedule_single_event( $sspe_timestamp, 'sspe_email_videos', $sspe_args );
+		if( !empty( $_POST[ $sspe_timestamp ] ) )
+			wp_schedule_single_event( strtotime( $_POST[ $sspe_timestamp ] ), 'sspe_email_videos', $sspe_args );
 		
 	    // Put an settings updated message on the screen
 		?>
@@ -215,19 +233,57 @@ function sspe_add_menu_page_callback() {
 			</div>
 
 			<div style="float: right; width: 35%;">
-				
-<pre>
-<?php print_r( $_POST ); ?>
-</pre>
 
 				<table class="form-table">
 					<tbody>
 						<tr valign="top">
 							<th scope="row"><label for="<?php echo $sspe_mailchimp_api_key_field; ?>">Mailchimp API Key</label></th>
 							<td>
-								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_api_key_field; ?>" value="<?php echo get_option( $sspe_mailchimp_api_key_field ); ?>">
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_api_key_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_api_key_field]; ?>">
 							</td>
 						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_campaign_title_field; ?>">Campaign Title</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_campaign_title_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_campaign_title_field]; ?>">
+							</td>
+						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_list_id_field; ?>">List ID</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_list_id_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_list_id_field]; ?>">
+							</td>
+						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_email_subject_field; ?>">Email Subject</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_email_subject_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_email_subject_field]; ?>">
+							</td>
+						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_from_email_field; ?>">From Email Address</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_from_email_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_from_email_field]; ?>">
+							</td>
+						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_from_name_field; ?>">From Name</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_from_name_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_from_name_field]; ?>">
+							</td>
+						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_to_name_field; ?>">To Name</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_to_name_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_to_name_field]; ?>">
+							</td>
+						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_google_analytics_field; ?>">Google Analytics</label></th>
+							<td>
+								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_google_analytics_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_google_analytics_field]; ?>">
+							</td>
+						</tr>	
 					</tbody>
 				</table>
 
@@ -254,17 +310,18 @@ function sspe_add_menu_page_callback() {
 	$date_format = _x( 'M j, Y @ G:i', 'Publish box date format', 'cron-view' );
 	?>
 
-	<h3><?php _e('Schduled Emails', 'cron-view'); ?></h3>
+	<h3><?php _e('Scheduled Emails', 'cron-view'); ?></h3>
 
 	<table class="widefat fixed">
 		<thead>
 			<tr>
-				<th scope="col"><?php _e('Date/time scheduled ('. get_option( 'timezone_string' ) .')', 'cron-view'); ?></th>
-				<th scope="col"><?php _e('Schedule', 'cron-view'); ?></th>
-				<th scope="col"><?php _e('Posts', 'cron-view'); ?></th>
+				<th scope="col"><?php _e('Date/time scheduled', 'sspe'); ?></th>
+				<th scope="col"><?php _e('Schedule', 'sspe'); ?></th>
+				<th scope="col"><?php _e('Posts', 'sspe'); ?></th>
 			</tr>
 		</thead>
 		<tbody>
+			
 			<?php foreach ( $cron as $timestamp => $cronhooks ) { ?>
 				<?php foreach ( (array) $cronhooks as $hook => $events ) { $i = ''; ?>
 					<?php foreach ( (array) $events as $event ) { $i++; ?>
@@ -272,9 +329,9 @@ function sspe_add_menu_page_callback() {
 							continue;
 						?>
 						<tr>
-							<th scope="row"><?php echo date( 'D M d, Y g:ia', $timestamp ); ?></th>
+							<th scope="row"><?php echo date( 'D M d, Y g:ia T', $timestamp ); ?></th>
 							<td>
-								<?php 
+								<?php echo $timestamp;
 									if ( $event[ 'schedule' ] ) {
 										echo $schedules [ $event[ 'schedule' ] ][ 'display' ]; 
 									} else {

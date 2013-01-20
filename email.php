@@ -1,13 +1,13 @@
 <?php
 
-function sspe_email_template_html( $args ) {
+function sspe_email_template_html( $post1_id, $post2_id, $post3_id ) {
 	
-	if( $args['sspe_post1'] )
-		$post1 = get_post( $args['sspe_post1'] );
-	if( $args['sspe_post2'] )
-		$post2 = get_post( $args['sspe_post2'] );
-	if( $args['sspe_post3'] )
-		$post3 = get_post( $args['sspe_post3'] );
+	if( $post1_id )
+		$post1 = get_post( $post1_id );
+	if( $post2_id )
+		$post2 = get_post( $post2_id );
+	if( $post3_id )
+		$post3 = get_post( $post3_id );
 
 	$output = '
 	<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -113,14 +113,14 @@ function sspe_email_template_html( $args ) {
 	return $output;
 }
 
-function sspe_email_template_text( $args ) {
+function sspe_email_template_text( $post1_id, $post2_id, $post3_id ) {
 	
-	if( $args['post1'] )
-		$post1 = get_post( $args['post1'] );
-	if( $args['post2'] )
-		$post2 = get_post( $args['post2'] );
-	if( $args['post3'] )
-		$post3 = get_post( $args['post3'] );
+	if( $post1_id )
+		$post1 = get_post( $post1_id );
+	if( $post2_id )
+		$post2 = get_post( $post2_id );
+	if( $post3_id )
+		$post3 = get_post( $post3_id );
 		
 	$output = $args .'
 	[1]Ready Rosie
