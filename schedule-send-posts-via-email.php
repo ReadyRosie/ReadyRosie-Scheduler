@@ -17,7 +17,7 @@ require_once( WP_PLUGIN_DIR .'/schedule-send-posts-via-email/email.php' );
 
 add_action( 'admin_menu',				'sspe_add_menu' );
 add_action( 'admin_enqueue_scripts',	'sspe_enqueue_scripts' );
-add_action( 'sspe_email_videos',		'sspe_schedule_email', 10, 3 );
+add_action( 'sspe_email_videos',		'sspe_schedule_email', 10, 4 );
 
 date_default_timezone_set( get_option( 'timezone_string' ) );
 
@@ -37,7 +37,7 @@ function sspe_enqueue_scripts($hook) {
 }
 
 // Sets up the action to run when the scheduled event fires (i.e. email users)
-function sspe_schedule_email( $post1_id, $post2_id, $post3_id ) {
+function sspe_schedule_email( $post1_id, $post2_id, $post3_id, $list_id ) {
 	
 	$sspe_options = get_option( 'sspe_settings' );
 
@@ -54,7 +54,7 @@ function sspe_schedule_email( $post1_id, $post2_id, $post3_id ) {
 	$opts['title']		= $sspe_options['sspe_mailchimp_campaign_title'];
 		
 	// List ID
-	$opts['list_id']	= $sspe_options['sspe_mailchimp_list_id'];
+	$opts['list_id']	= $list_id;
 	
 	// Email subject
 	$opts['subject']	= $sspe_options['sspe_mailchimp_email_subject'] .' - ' . $title;
@@ -107,6 +107,8 @@ function sspe_add_menu_page_callback() {
     if ( !current_user_can( 'edit_posts' ) ) {
 		wp_die( __( 'You do not have sufficient permissions to access this page.' ) );
     }
+	$sspe_options = get_option( 'sspe_settings' );
+	$api = new MCAPI( $sspe_options['sspe_mailchimp_api_key'] );
 
     // variables for the field and option names
 	$sspe_post1		= 'sspe_post1';
@@ -123,8 +125,6 @@ function sspe_add_menu_page_callback() {
 	$sspe_mailchimp_to_name_field			= 'sspe_mailchimp_to_name';
 	$sspe_mailchimp_google_analytics_field	= 'sspe_mailchimp_google_analytics';
 
-	$sspe_options = get_option( 'sspe_settings' );
-
     // See if the user has posted some information
     // If they did, this hidden field will be set to 'Y'
     if( isset($_POST[ $sspe_hidden ]) && $_POST[ $sspe_hidden ] == 'Y' ) {
@@ -132,7 +132,6 @@ function sspe_add_menu_page_callback() {
 		$sspe_options = array(
 			$sspe_mailchimp_api_key_field			=> stripslashes( $_POST[ $sspe_mailchimp_api_key_field ] ),
 			$sspe_mailchimp_campaign_title_field	=> stripslashes( $_POST[ $sspe_mailchimp_campaign_title_field ] ),
-			$sspe_mailchimp_list_id_field			=> stripslashes( $_POST[ $sspe_mailchimp_list_id_field ] ),
 			$sspe_mailchimp_email_subject_field		=> stripslashes( $_POST[ $sspe_mailchimp_email_subject_field ] ),
 			$sspe_mailchimp_from_email_field		=> stripslashes( $_POST[ $sspe_mailchimp_from_email_field ] ),
 			$sspe_mailchimp_from_name_field			=> stripslashes( $_POST[ $sspe_mailchimp_from_name_field ] ),
@@ -147,7 +146,8 @@ function sspe_add_menu_page_callback() {
 		$sspe_args = array(
 			$_POST[ $sspe_post1 ],
 			$_POST[ $sspe_post2 ],
-			$_POST[ $sspe_post3 ]
+			$_POST[ $sspe_post3 ],
+			$_POST[ $sspe_mailchimp_list_id_field ]
 		);
 				
 		// Schedule event
@@ -227,6 +227,35 @@ function sspe_add_menu_page_callback() {
 								<input id="sspe-datepicker" class="regular-text" type="text" placeholder="Choose a date..." name="<?php echo $sspe_timestamp; ?>">
 							</td>
 						</tr>
+						<tr valign="top">
+							<th scope="row"><label for="<?php echo $sspe_mailchimp_list_id_field; ?>">Mailing List</label></th>
+							<td>
+								<?php if( !empty( $api ) ) { ?>
+								<select name="<?php echo $sspe_mailchimp_list_id_field; ?>" data-placeholder="Chose a mailing list..." style="width:350px;" class="chzn-select">
+									<option></option>
+									<?php
+								
+									$api->lists();
+								 
+									$lists = $api->lists(); 
+								
+									if ($api->errorCode) {
+										$message = "\n\tCode=".$api->errorCode;
+										$message .= "\n\tMsg=".$api->errorMessage."\n";
+										error_log( '[Schedule and Send Posts via Email Plugin] '. $message );
+									} else {
+										foreach( $lists['data'] as $list ) {
+											echo '<option value="'. $list['id'] .'">'. $list['name'] .'</option>';
+										}
+									}
+									?>
+								</select>
+								<?php } else {
+									echo '<p>Enter your Mailchimmp API key first &rarr;';
+									}
+								?>
+							</td>
+						</tr>
 					</tbody>
 				</table>
 				
@@ -246,12 +275,6 @@ function sspe_add_menu_page_callback() {
 							<th scope="row"><label for="<?php echo $sspe_mailchimp_campaign_title_field; ?>">Campaign Title</label></th>
 							<td>
 								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_campaign_title_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_campaign_title_field]; ?>">
-							</td>
-						</tr>
-						<tr valign="top">
-							<th scope="row"><label for="<?php echo $sspe_mailchimp_list_id_field; ?>">List ID</label></th>
-							<td>
-								<input class="regular-text" type="text" name="<?php echo $sspe_mailchimp_list_id_field; ?>" value="<?php echo $sspe_options[$sspe_mailchimp_list_id_field]; ?>">
 							</td>
 						</tr>
 						<tr valign="top">
@@ -317,6 +340,7 @@ function sspe_add_menu_page_callback() {
 			<tr>
 				<th scope="col"><?php _e('Date/time scheduled', 'sspe'); ?></th>
 				<th scope="col"><?php _e('Schedule', 'sspe'); ?></th>
+				<th scope="col"><?php _e('Mailing List', 'sspe'); ?></th>
 				<th scope="col"><?php _e('Posts', 'sspe'); ?></th>
 			</tr>
 		</thead>
@@ -339,6 +363,24 @@ function sspe_add_menu_page_callback() {
 									}
 								?>
 							</td>
+							<td><?php if ( count( $event[ 'args' ] ) ) { ?>
+								<?php
+								$api = new MCAPI( $sspe_options['sspe_mailchimp_api_key'] );
+							
+								$filters = array ('list_id' => $event[ 'args' ][3] );
+								$api->lists($filters);
+							 
+								$lists = $api->lists($filters); 
+							
+								if ($api->errorCode) {
+									$message = "\n\tCode=".$api->errorCode;
+									$message .= "\n\tMsg=".$api->errorMessage."\n";
+									error_log( '[Schedule and Send Posts via Email Plugin] '. $message );
+								} else {
+									echo $lists['data'][0]['name'];
+								}
+								?>
+							<?php } ?></td>
 							<td><?php if ( count( $event[ 'args' ] ) ) { ?>
 								<ul>
 									<?php
