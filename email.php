@@ -1,6 +1,6 @@
 <?php
 
-function sspe_email_template_html( $post1_id, $post2_id, $post3_id ) {
+function rrs_email_template_html( $post1_id, $post2_id, $post3_id ) {
 	
 	if( $post1_id )
 		$post1 = get_post( $post1_id );
@@ -113,7 +113,7 @@ function sspe_email_template_html( $post1_id, $post2_id, $post3_id ) {
 	return $output;
 }
 
-function sspe_email_template_text( $post1_id, $post2_id, $post3_id ) {
+function rrs_email_template_text( $post1_id, $post2_id, $post3_id ) {
 	
 	if( $post1_id )
 		$post1 = get_post( $post1_id );
